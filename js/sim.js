@@ -1,4 +1,6 @@
 
+import Client from './client.js'
+
 // Connection connects units, transiently
 class Connection {
   constructor (id, from, to) {
@@ -136,6 +138,7 @@ export class World {
     this.n = 0
     this.domains = new Map()
     this.connections = new Map()
+    this.hooks = []
   }
   // for admin
   newDomain(name) {
@@ -144,6 +147,9 @@ export class World {
     return domain
   }
   // for user
+  newClient () {
+    return new Client(this)
+  }
   connectIn (domain) {
     let tgt = this.domains.get(domain)
     if (!tgt) {
@@ -156,6 +162,9 @@ export class World {
     return new Endpoint(connection, true)
   }
   // for sim
+  addHook (f) {
+    this.hooks.push(f)
+  }
   connect (installation, unit, to) {
     // TODO
   }
@@ -166,6 +175,11 @@ export class World {
     }
     for (let [id, connection] of [...this.connections]) {
       connection.tick()
+    }
+    for (let hook of this.hooks) {
+      if (hook()) {
+        this.hooks.remove(hook)
+      }
     }
     this.element.textContent = this.n
   }
