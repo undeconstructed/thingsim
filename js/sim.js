@@ -1,4 +1,5 @@
 
+import * as random from './random.js'
 import Client from './client.js'
 
 // Connection connects units, transiently
@@ -44,43 +45,72 @@ class Endpoint {
 
 // Unit is a process, basically
 class Unit {
-  constructor (host, addr, handler) {
+  constructor (host, addr, handlerClazz) {
     this.host = host
     this.addr = addr
-    this.handler = handler
+    this.handlerClazz = handlerClazz
+    this.handler = null
     this.connections = new Map()
   }
   // for unit to use
-  get (to, frame) {
+  lookup (name) {
+    // DNS
+    let byAlias = this.host.aliases.get(name)
+    if (byAlias) {
+      name = byAlias
+    }
+    return name
+  }
+  connect (to) {
+    to = this.lookup(to)
     let conn = this.connections.get(to)
     if (!conn) {
       conn = this.host.connect(this, to)
       this.connections.set(to, conn)
     }
-    conn.push(frame)
+    return conn
   }
   // for sim
   tick (c) {
-    this.handler.tick(this)
+    if (!this.handler) {
+      try {
+        let handler = new this.handlerClazz()
+        handler.init = handler.init || (() => true)
+        handler.tick = handler.tick || (() => true)
+        this.handler = handler
+      } catch (e) {
+        console.log('failed to init', this.host.name, this.addr, e)
+        return
+      }
+    }
+    try {
+      this.handler.tick(this)
+    } catch (e) {
+      console.log('failed to tick', this.host.name, this.addr, e)
+      return
+    }
   }
   connectIn (connection) {
-    this.connections.set(connection.id, connection)
+    this.connections.set(connection.addr, connection)
   }
 }
 
-// Domainruns some units
+function makeConnectionId(addr1, addr2) {
+  return (addr1 < addr2) ? `${addr1}:${addr2}` : `${addr2}:${addr1}`
+}
+
+// Domain runs some units
 class Domain {
-  constructor (internet) {
+  constructor (internet, name) {
     this.internet = internet
+    this.name = name
     this.units = new Map()
     this.connections = new Map()
     this.aliases = new Map()
   }
   // for admin
-  newUnit (addr, handler) {
-    handler.init = handler.init || (() => true)
-    handler.tick = handler.tick || (() => true)
-    let unit = new Unit(this, addr, handler)
+  newUnit (addr, handlerClazz) {
+    let unit = new Unit(this, addr, handlerClazz)
     this.units.set(addr, unit)
     return unit
   }
@@ -89,17 +119,15 @@ class Domain {
   }
   // for units
   connect (unit, to) {
-    let id = (host.addr < to) ? `${host.addr}:${to}` : `${to}:${host.addr}`
-    let connection = this.connections.get(id)
-    if (!connection) {
-      let tgt = this.units.get(to)
-      if (!tgt) {
-        throw 'error'
-      }
-      let connection = new Connection(id, unit.addr, to)
-      tgt.connectIn(unit.addr, new Endpoint(connection, false))
-      this.connections.set(id, connection)
+    let tgt = this.units.get(to)
+    if (!tgt) {
+      throw 'error'
     }
+
+    let id = random.id()
+    let connection = new Connection(id, unit.addr, to)
+    this.connections.set(id, connection)
+    tgt.connectIn(new Endpoint(connection, false))
     return new Endpoint(connection, true)
   }
   connectOut () {
@@ -127,10 +155,6 @@ class Domain {
   }
 }
 
-function randomId () {
-  return (Math.random() + 1).toString(36).substr(2,5)
-}
-
 // World links domains
 export class World {
   constructor (element) {
@@ -147,18 +171,18 @@ export class World {
     return domain
   }
   // for user
-  newClient () {
-    return new Client(this)
+  newClient (addr) {
+    return new Client(this, addr)
   }
-  connectIn (domain) {
+  connectIn (addr, domain) {
     let tgt = this.domains.get(domain)
     if (!tgt) {
       throw 'error'
     }
-    let id = randomId()
-    let connection = new Connection(id, 'user', domain)
+    let id = makeConnectionId(addr, domain)
+    let connection = new Connection(id, addr, domain)
     tgt.connectIn(connection)
-    this.connections.set(id, connection)
+    this.connections.set(addr, connection)
     return new Endpoint(connection, true)
   }
   // for sim
