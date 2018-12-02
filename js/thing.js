@@ -2,6 +2,9 @@
 import * as random from './random.js'
 
 class BuildingBlock {
+  constructor () {
+    this.ctx = null
+  }
   tick (ctx) {
     this.ctx = ctx
     for (let [id, connection] of [...ctx.connections]) {
@@ -93,7 +96,16 @@ export class Frontend extends BuildingBlock {
   }
 }
 
-export class Library {
+export class Library extends BuildingBlock {
+  onData (connection, data) {
+    if (d.type === 'request') {
+      connection.write({
+        type: 'response',
+        id: d.id,
+        data: `template of ${d.data}`
+      })
+    }
+  }
 }
 
 export class Store {
