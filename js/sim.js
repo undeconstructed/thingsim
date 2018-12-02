@@ -1,10 +1,11 @@
 
 import * as random from './random.js'
+import { mkel } from './util.js'
 import Client from './client.js'
 
 // Connection connects units, transiently
 class Connection {
-  constructor (id, from, to) {
+  constructor (element, id, from, to) {
     this.id = id
     this.from = from
     this.to = to
@@ -12,12 +13,26 @@ class Connection {
     this.d1 = []
     this.d0t = []
     this.d1t = []
+    if (element) {
+      this.setupUI(element)
+    }
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element
+    }
   }
   tick (c) {
     this.d0 = this.d0.concat(this.d1t)
     this.d1t = []
     this.d1 = this.d1.concat(this.d0t)
     this.d0t = []
+    if (this.ui) {
+      this.updateUI()
+    }
+  }
+  updateUI () {
+    this.ui.root.textContent = `${this.id} - ${this.from} ${this.d0.length} - ${this.to} ${this.d1.length}`
   }
 }
 
@@ -45,12 +60,21 @@ class Endpoint {
 
 // Unit is a process, basically
 class Unit {
-  constructor (host, addr, handlerClazz) {
+  constructor (host, element, addr, handlerClazz) {
     this.host = host
     this.addr = addr
     this.handlerClazz = handlerClazz
     this.handler = null
     this.connections = new Map()
+    if (element) {
+      this.setupUI(element)
+    }
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element
+    }
+    this.ui.root.textContent = this.addr
   }
   // for unit to use
   lookup (name) {
@@ -101,13 +125,35 @@ function makeConnectionId(addr1, addr2) {
 
 // Domain runs some units
 class Domain {
-  constructor (internet, name) {
+  constructor (internet, element, name) {
     this.internet = internet
     this.name = name
     this.specs = new Map()
     this.units = new Map()
     this.connections = new Map()
     this.aliases = new Map()
+    if (element) {
+      this.setupUI(element)
+    }
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element,
+      top: mkel('ul')
+    }
+    this.ui.root.textContent = this.name
+
+    let units = mkel('li', { text: 'units' })
+    this.ui.units = mkel('ul')
+    units.appendChild(this.ui.units)
+    this.ui.top.appendChild(units)
+
+    let connections = mkel('li', { text: 'connections' })
+    this.ui.connections = mkel('ul')
+    connections.appendChild(this.ui.connections)
+    this.ui.top.appendChild(connections)
+
+    this.ui.root.appendChild(this.ui.top)
   }
   // for admin
   manage (spec) {
@@ -122,7 +168,12 @@ class Domain {
     }
   }
   newUnit (addr, handlerClazz) {
-    let unit = new Unit(this, addr, handlerClazz)
+    let element = null
+    if (this.ui) {
+      element = mkel('li')
+      this.ui.units.appendChild(element)
+    }
+    let unit = new Unit(this, element, addr, handlerClazz)
     this.units.set(addr, unit)
     return unit
   }
@@ -135,12 +186,21 @@ class Domain {
     if (!tgt) {
       throw 'error'
     }
-
-    let id = random.id()
-    let connection = new Connection(id, unit.addr, to)
-    this.connections.set(id, connection)
+    let connection = this.newConnection(unit.addr, to)
     tgt.connectIn(new Endpoint(connection, false))
     return new Endpoint(connection, true)
+  }
+  newConnection (from, to) {
+    let element = null
+    if (this.ui) {
+      element = mkel('li')
+      this.ui.connections.appendChild(element)
+    }
+
+    let id = random.id()
+    let connection = new Connection(element, id, from, to)
+    this.connections.set(id, connection)
+    return connection
   }
   connectOut () {
     // TODO
@@ -170,31 +230,57 @@ class Domain {
 // World links domains
 export class World {
   constructor (element) {
-    this.element = element
     this.n = 0
     this.domains = new Map()
     this.connections = new Map()
+    this.clients = new Map()
     this.hooks = []
+    // ui
+    if (element) {
+      this.setupUI(element)
+    }
   }
   // for admin
   newDomain(name) {
-    let domain = new Domain(this, name)
+    let element = null
+    if (this.ui) {
+      element = mkel('li')
+      this.ui.domains.appendChild(element)
+    }
+    let domain = new Domain(this, element, name)
     this.domains.set(name, domain)
     return domain
   }
   // for user
   newClient (addr) {
-    return new Client(this, addr)
+    let element = null
+    if (this.ui) {
+      element = mkel('li')
+      this.ui.clients.appendChild(element)
+    }
+    let client = new Client(this, element, addr)
+    this.clients.set(addr, client)
+    return client
+  }
+  newConnection (from, to) {
+    let element = null
+    if (this.ui) {
+      element = mkel('li')
+      this.ui.connections.appendChild(element)
+    }
+
+    let id = random.id()
+    let connection = new Connection(element, id, from, to)
+    this.connections.set(id, connection)
+    return connection
   }
   connectIn (addr, domain) {
     let tgt = this.domains.get(domain)
     if (!tgt) {
       throw 'error'
     }
-    let id = makeConnectionId(addr, domain)
-    let connection = new Connection(id, addr, domain)
+    let connection = this.newConnection(addr, domain)
     tgt.connectIn(connection)
-    this.connections.set(addr, connection)
     return new Endpoint(connection, true)
   }
   // for sim
@@ -205,7 +291,9 @@ export class World {
     // TODO
   }
   tick () {
-    this.n++
+    for (let [addr, client] of [...this.clients]) {
+      client.tick()
+    }
     for (let [name, domain] of [...this.domains]) {
       domain.tick()
     }
@@ -217,6 +305,38 @@ export class World {
         this.hooks.remove(hook)
       }
     }
-    this.element.textContent = this.n
+    this.updateUI()
+    this.n++
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element,
+      top: mkel('ul'),
+      n: mkel('li'),
+    }
+    this.ui.top.appendChild(this.ui.n)
+
+    let clients = mkel('li', { text: 'clients' })
+    this.ui.clients = mkel('ul')
+    clients.appendChild(this.ui.clients)
+    this.ui.top.appendChild(clients)
+
+    let domains = mkel('li', { text: 'domains' })
+    this.ui.domains = mkel('ul')
+    domains.appendChild(this.ui.domains)
+    this.ui.top.appendChild(domains)
+
+    let connections = mkel('li', { text: 'connections' })
+    this.ui.connections = mkel('ul')
+    connections.appendChild(this.ui.connections)
+    this.ui.top.appendChild(connections)
+
+    this.ui.root.appendChild(this.ui.top)
+  }
+  updateUI () {
+    if (!this.ui) {
+      return
+    }
+    this.ui.n.textContent = `n = ${this.n}`
   }
 }

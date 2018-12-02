@@ -1,8 +1,19 @@
 
+import { mkel } from './util.js'
 import * as thing from './thing.js'
 import * as sim from './sim.js'
 
-let world = new sim.World(document.body)
+let root = document.body
+
+let tickButton = mkel('button', { text: 'tick' })
+let autoButton = mkel('button', { text: 'auto' })
+let viewBox = mkel('div')
+
+root.appendChild(tickButton)
+root.appendChild(autoButton)
+root.appendChild(viewBox)
+
+let world = new sim.World(viewBox)
 window.world = world
 
 let home = world.newDomain('home')
@@ -22,7 +33,14 @@ let club = world.newDomain('club')
 club.newUnit('fe-1', thing.Frontend)
 club.alias('www', 'fe-1')
 
-setInterval(() => world.tick(), 1000)
+tickButton.addEventListener('click', e => {
+  world.tick()
+})
+autoButton.addEventListener('click', e => {
+  setInterval(() => {
+    world.tick()
+  }, 1000)
+})
 
 let client = world.newClient('me')
 client.request('home', 'thing', (e, r) => {

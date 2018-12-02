@@ -1,23 +1,20 @@
 
 export default class Client {
-  constructor (world, addr) {
+  constructor (world, element, addr) {
     this.world = world
     this.addr = addr
     this.connections = new Map()
     this.requests = new Map()
     this.requestCount = 0
-    this.world.addHook(() => {
-      for (let c of this.connections.values()) {
-        let d = c.read()
-        if (d && d.type === 'response') {
-          let cb = this.requests.get(d.id)
-          if (cb) {
-            cb(null, d.data)
-          }
-        }
-      }
-      return false
-    })
+    if (element) {
+      this.setupUI(element)
+    }
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element
+    }
+    this.ui.root.textContent = this.addr
   }
   connect (domain) {
     let connection = this.connections.get(domain)
@@ -37,5 +34,17 @@ export default class Client {
     }
     this.requests.set(id, cb)
     c.write(r)
+  }
+  tick () {
+    for (let c of this.connections.values()) {
+      let d = c.read()
+      if (d && d.type === 'response') {
+        let cb = this.requests.get(d.id)
+        if (cb) {
+          cb(null, d.data)
+        }
+      }
+    }
+    return false
   }
 }
