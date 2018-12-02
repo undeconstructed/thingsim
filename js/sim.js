@@ -32,7 +32,15 @@ class Connection {
     }
   }
   updateUI () {
-    this.ui.root.textContent = `${this.id} - ${this.from} ${this.d0.length} - ${this.to} ${this.d1.length}`
+    let upSym = '⚪'
+    let downSym = '⚪'
+    if (this.d0.length) {
+      upSym = '⚫'
+    }
+    if (this.d1.length) {
+      downSym = '⚫'
+    }
+    this.ui.root.textContent = `${this.id} - ${this.from} ${upSym} - ${this.to} ${downSym}`
   }
 }
 
@@ -184,7 +192,7 @@ class Domain {
   connect (unit, to) {
     let tgt = this.units.get(to)
     if (!tgt) {
-      throw 'error'
+      throw new Error('no target: ' + to)
     }
     let connection = this.newConnection(unit.addr, to)
     tgt.connectIn(new Endpoint(connection, false))
@@ -209,11 +217,11 @@ class Domain {
   connectIn (connection) {
     let to = this.aliases.get('www')
     if (!to) {
-      throw 'error'
+      throw new Error('no alias www')
     }
     let unit = this.units.get(to)
     if (!unit) {
-      throw 'error'
+      throw new Error('no unit ' + addr)
     }
     unit.connectIn(new Endpoint(connection, false))
   }
@@ -277,7 +285,7 @@ export class World {
   connectIn (addr, domain) {
     let tgt = this.domains.get(domain)
     if (!tgt) {
-      throw 'error'
+      throw new Error('no domain ' + domain)
     }
     let connection = this.newConnection(addr, domain)
     tgt.connectIn(connection)
