@@ -104,11 +104,23 @@ class Domain {
   constructor (internet, name) {
     this.internet = internet
     this.name = name
+    this.specs = new Map()
     this.units = new Map()
     this.connections = new Map()
     this.aliases = new Map()
   }
   // for admin
+  manage (spec) {
+    this.specs.set(spec.type, spec)
+    spec.count = 0
+    // just make one for now
+    let addr = `${spec.type}-${spec.count}`
+    this.newUnit(addr, spec.unit)
+    spec.count++
+    if (spec.alias) {
+      this.alias(spec.alias, addr)
+    }
+  }
   newUnit (addr, handlerClazz) {
     let unit = new Unit(this, addr, handlerClazz)
     this.units.set(addr, unit)
