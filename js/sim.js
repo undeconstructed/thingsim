@@ -105,9 +105,13 @@ class Unit {
   // for sim
   tick (c) {
     if (!this.handler) {
+      let element = null
+      if (this.ui) {
+        element = mkel('div')
+        this.ui.root.appendChild(element)
+      }
       try {
-        let handler = new this.handlerClazz()
-        handler.init = handler.init || (() => true)
+        let handler = new this.handlerClazz(this, element)
         handler.tick = handler.tick || (() => true)
         this.handler = handler
       } catch (e) {

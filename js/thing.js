@@ -1,5 +1,6 @@
 
 import * as random from './random.js'
+import { mkel } from './util.js'
 
 class BuildingBlock {
   constructor () {
@@ -150,10 +151,23 @@ export class Library extends BuildingBlock {
 }
 
 export class Store extends BuildingBlock {
-  constructor () {
-    super()
+  constructor (host, element) {
+    super(host, element)
     this.store = new Map()
     this.preload()
+    if (element) {
+      this.setupUI(element)
+    }
+  }
+  setupUI (element) {
+    this.ui = {
+      root: element,
+      list: mkel('ul')
+    }
+    this.ui.size = mkel('li')
+    this.ui.size.textContent = `size = ${this.store.size}`
+    this.ui.list.appendChild(this.ui.size)
+    this.ui.root.appendChild(this.ui.list)
   }
   preload () {
     this.store.set('thing', JSON.stringify({
