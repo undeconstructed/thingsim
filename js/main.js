@@ -5,12 +5,14 @@ import * as sim from './sim.js'
 
 let root = document.body
 
+let toolbar = mkel('div', { style: 'border: 1px solid black' })
 let tickButton = mkel('button', { text: 'tick' })
 let autoButton = mkel('button', { text: 'auto' })
-let viewBox = mkel('div')
+let viewBox = mkel('div', { style: 'border: 1px solid black' })
 
-root.appendChild(tickButton)
-root.appendChild(autoButton)
+toolbar.appendChild(tickButton)
+toolbar.appendChild(autoButton)
+root.appendChild(toolbar)
 root.appendChild(viewBox)
 
 let world = new sim.World(viewBox)
@@ -49,3 +51,5 @@ client.request('home', 'thing', (e, r) => {
   console.log('response', r)
 })
 window.client = client
+
+autoButton.click()

@@ -1,6 +1,7 @@
 
 import * as random from './random.js'
 import { mkel } from './util.js'
+import { Animator, Box, Label } from './drawing.js'
 import Client from './client.js'
 
 // Connection connects units, transiently
@@ -325,6 +326,8 @@ export class World {
       root: element,
       top: mkel('ul'),
       n: mkel('li'),
+      clientCount: 0,
+      domainCount: 0
     }
     this.ui.top.appendChild(this.ui.n)
 
@@ -343,12 +346,63 @@ export class World {
     connections.appendChild(this.ui.connections)
     this.ui.top.appendChild(connections)
 
-    this.ui.root.appendChild(this.ui.top)
+    this.ui.canvas = mkel('canvas', { width: 1000, height: 800 })
+
+    this.ui.root.appendChild(this.ui.canvas)
+    // this.ui.root.appendChild(this.ui.top)
+
+    this.ui.animator = new Animator(this.ui.canvas)
+    this.ui.animator.appendChild(new Label(() => `n = ${this.n}`, 500, 10))
+    this.ui.animator.start()
   }
   updateUI () {
     if (!this.ui) {
       return
     }
+
+    for (let client of this.clients.values()) {
+      if (!client.ui.box) {
+        let left = 10 + this.ui.clientCount * (10 + 50)
+        let box = new Box(left, 10, 50, 50)
+        box.setSize(100, 100)
+        client.ui.box = box
+        let label = new Label(client.addr, 10, 10)
+        box.appendChild(label)
+        this.ui.animator.appendChild(box)
+        this.ui.clientCount++
+      }
+    }
+    for (let domain of this.domains.values()) {
+      if (!domain.ui.box) {
+        domain.ui.unitCount = 0
+        let left = 10 + this.ui.domainCount * (20 + 200)
+        let box = new Box(left, 130, 50, 50)
+        box.color = 'rgb(100,100,100)'
+        box.setSize(200, 50)
+        domain.ui.box = box
+        let label = new Label(domain.name, 10, 10)
+        box.appendChild(label)
+        this.ui.animator.appendChild(box)
+        this.ui.domainCount++
+      }
+      for (let unit of domain.units.values()) {
+        if (!unit.ui.box) {
+          let top = 50 + domain.ui.unitCount * (10 + 50)
+          let box = new Box(10, top, 50, 50)
+          box.setSize(150, 50)
+          unit.ui.box = box
+          let label = new Label(unit.addr, 10, 10)
+          box.appendChild(label)
+          domain.ui.box.appendChild(box)
+          domain.ui.unitCount++
+        }
+      }
+      let height = 50 + domain.ui.unitCount * (10 + 50)
+      domain.ui.box.setSize(200, height)
+    }
+    for (let connection of this.connections.values()) {
+    }
+
     this.ui.n.textContent = `n = ${this.n}`
   }
 }
