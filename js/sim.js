@@ -14,8 +14,17 @@ class Connection {
     this.d1 = []
     this.d0t = []
     this.d1t = []
+    this.e0 = null
+    this.e1 = null
     if (element) {
       this.setupUI(element)
+    }
+  }
+  getEndpoint (owner) {
+    if (owner.addr === this.from) {
+      return this.e0 = new Endpoint(owner, this, true)
+    } else {
+      return this.e1 = new Endpoint(owner, this, false)
     }
   }
   setupUI (element) {
@@ -47,7 +56,8 @@ class Connection {
 
 // Endpoint is a connection as seen by one of its ends
 class Endpoint {
-  constructor (connection, up) {
+  constructor (owner, connection, up) {
+    this.owner = owner
     this.connection = connection
     this.up = up
   }
@@ -128,7 +138,7 @@ class Unit {
     }
   }
   connectIn (connection) {
-    this.connections.set(connection.addr, connection)
+    this.connections.set(connection.addr, connection.getEndpoint(this))
   }
 }
 
@@ -140,7 +150,7 @@ function makeConnectionId(addr1, addr2) {
 class Domain {
   constructor (internet, element, name) {
     this.internet = internet
-    this.name = name
+    this.name = this.addr = name
     this.specs = new Map()
     this.units = new Map()
     this.connections = new Map()
@@ -200,8 +210,8 @@ class Domain {
       throw new Error('no target: ' + to)
     }
     let connection = this.newConnection(unit.addr, to)
-    tgt.connectIn(new Endpoint(connection, false))
-    return new Endpoint(connection, true)
+    tgt.connectIn(connection)
+    return connection.getEndpoint(unit)
   }
   newConnection (from, to) {
     let element = null
@@ -228,7 +238,9 @@ class Domain {
     if (!unit) {
       throw new Error('no unit ' + addr)
     }
-    unit.connectIn(new Endpoint(connection, false))
+    // TODO - this is weird, changing the connection
+    connection.to = unit.addr
+    unit.connectIn(connection)
   }
   tick () {
     for (let [addr, unit] of [...this.units]) {
@@ -287,14 +299,14 @@ export class World {
     this.connections.set(id, connection)
     return connection
   }
-  connectIn (addr, domain) {
+  connectIn (self, domain) {
     let tgt = this.domains.get(domain)
     if (!tgt) {
       throw new Error('no domain ' + domain)
     }
-    let connection = this.newConnection(addr, domain)
+    let connection = this.newConnection(self.addr, domain)
     tgt.connectIn(connection)
-    return new Endpoint(connection, true)
+    return connection.getEndpoint(self)
   }
   // for sim
   addHook (f) {

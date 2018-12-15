@@ -19,7 +19,7 @@ export default class Client {
   connect (domain) {
     let connection = this.connections.get(domain)
     if (!connection) {
-      connection = this.world.connectIn(this.addr, domain)
+      connection = this.world.connectIn(this, domain)
       this.connections.set(domain, connection)
     }
     return connection
