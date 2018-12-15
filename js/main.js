@@ -37,19 +37,30 @@ let club = world.newDomain('club')
 club.newUnit('fe-1', thing.Frontend)
 club.alias('www', 'fe-1')
 
+let client = world.newClient('me')
+
+world.updateUI()
+
+let onAuto = false
 tickButton.addEventListener('click', e => {
+  if (onAuto) {
+    return
+  }
   world.tick()
 })
 autoButton.addEventListener('click', e => {
+  if (onAuto) {
+    return
+  }
+  onAuto = true
   setInterval(() => {
     world.tick()
   }, 1000)
 })
 
-let client = world.newClient('me')
+// autoButton.click()
+
 client.request('home', 'thing', (e, r) => {
   console.log('response', r)
 })
 window.client = client
-
-autoButton.click()

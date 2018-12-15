@@ -1,7 +1,7 @@
 
 import * as random from './random.js'
 import { mkel } from './util.js'
-import { Animator, Box, Label } from './drawing.js'
+import { Animator, Box, Coord, Label, Wire } from './drawing.js'
 import Client from './client.js'
 
 // Connection connects units, transiently
@@ -361,7 +361,7 @@ export class World {
     this.ui.canvas = mkel('canvas', { width: 1000, height: 800 })
 
     this.ui.root.appendChild(this.ui.canvas)
-    // this.ui.root.appendChild(this.ui.top)
+    this.ui.root.appendChild(this.ui.top)
 
     this.ui.animator = new Animator(this.ui.canvas)
     this.ui.animator.appendChild(new Label(() => `n = ${this.n}`, 500, 10))
@@ -372,6 +372,7 @@ export class World {
       return
     }
 
+    // connections first, so that endpoints can be connected
     for (let client of this.clients.values()) {
       if (!client.ui.box) {
         let left = 10 + this.ui.clientCount * (10 + 50)
@@ -380,6 +381,10 @@ export class World {
         client.ui.box = box
         let label = new Label(client.addr, 10, 10)
         box.appendChild(label)
+        let connector = new Box(45, 95, 10, 10)
+        connector.color = 'black'
+        client.ui.connector = connector
+        box.appendChild(connector)
         this.ui.animator.appendChild(box)
         this.ui.clientCount++
       }
@@ -387,6 +392,7 @@ export class World {
     for (let domain of this.domains.values()) {
       if (!domain.ui.box) {
         domain.ui.unitCount = 0
+        domain.ui.wireCount = 0
         let left = 10 + this.ui.domainCount * (20 + 200)
         let box = new Box(left, 130, 50, 50)
         box.color = 'rgb(100,100,100)'
@@ -394,6 +400,11 @@ export class World {
         domain.ui.box = box
         let label = new Label(domain.name, 10, 10)
         box.appendChild(label)
+        let connector = new Box(95, -5, 10, 10)
+        connector.color = 'black'
+        connector.addr = domain.addr
+        domain.ui.connector = connector
+        box.appendChild(connector)
         this.ui.animator.appendChild(box)
         this.ui.domainCount++
       }
@@ -404,15 +415,36 @@ export class World {
           box.setSize(150, 50)
           unit.ui.box = box
           let label = new Label(unit.addr, 10, 10)
+          // let label = new Coord()
           box.appendChild(label)
+          let connector = new Box(145, 20, 10, 10)
+          connector.color = 'black'
+          connector.addr = unit.addr
+          unit.ui.connector = connector
+          box.appendChild(connector)
           domain.ui.box.appendChild(box)
           domain.ui.unitCount++
+        }
+      }
+      for (let connection of domain.connections.values()) {
+        // intra domain connections
+        if (!connection.ui.wire) {
+          let wire = new Wire(connection.e0.owner.ui.connector, connection.e1.owner.ui.connector, 8 + domain.ui.wireCount * 4)
+          domain.ui.box.appendChild(wire)
+          connection.ui.wire = wire
+          domain.ui.wireCount++
         }
       }
       let height = 50 + domain.ui.unitCount * (10 + 50)
       domain.ui.box.setSize(200, height)
     }
     for (let connection of this.connections.values()) {
+      // inter domain connections
+      if (!connection.ui.wire) {
+        let wire = new Wire(connection.e0.owner.ui.connector, connection.e1.owner.ui.connector)
+        this.ui.animator.appendChild(wire)
+        connection.ui.wire = wire
+      }
     }
 
     this.ui.n.textContent = `n = ${this.n}`
